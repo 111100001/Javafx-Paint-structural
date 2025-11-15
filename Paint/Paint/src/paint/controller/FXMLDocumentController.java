@@ -316,6 +316,12 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
         ShapeBox.setItems(shapeList);
         
         ColorBox.setValue(Color.BLACK);
+        // Refresh highlight on selection change
+        if (ShapeList != null && CanvasBox != null) {
+            ShapeList.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
+                redraw(CanvasBox);
+            });
+        }
     }
 
     @Override
@@ -333,9 +339,15 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.clearRect(0, 0, 850, 370);
         try{
-        for(int i=0;i<shapeList.size();i++){
-            shapeList.get(i).draw(canvas);
-        }
+            int selectedIndex = ShapeList.getSelectionModel() != null ? ShapeList.getSelectionModel().getSelectedIndex() : -1;
+            for(int i=0;i<shapeList.size();i++){
+                if(i == selectedIndex){
+                    paint.model.iShape deco = paint.model.decorator.ShapeDecorator.withSelection(shapeList.get(i));
+                    deco.draw(canvas);
+                } else {
+                    shapeList.get(i).draw(canvas);
+                }
+            }
         }catch(Exception e){}
     }
 
