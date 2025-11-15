@@ -1,4 +1,3 @@
-
 package paint.controller;
 
 import java.io.File;
@@ -14,6 +13,7 @@ import javax.xml.transform.stream.*;
 import org.xml.sax.*;
 import org.w3c.dom.*;
 import paint.model.Shape;
+import paint.model.GroupShape;
 
 public class SaveToXML {
     private String path;
@@ -34,8 +34,24 @@ public class SaveToXML {
         Element rootEle = dom.createElement("root");
         
         for(int i=0;i<l.size();i++){
-            m = l.get(i).getProperties();
-            Element sh = dom.createElement(l.get(i).getClass().getSimpleName());
+            Shape current = l.get(i);
+            if(current instanceof GroupShape){
+                // flatten group: save each child separately
+                GroupShape g = (GroupShape) current;
+                for(Shape child : g.getChildren()){
+                    m = child.getProperties();
+                    Element sh = dom.createElement(child.getClass().getSimpleName());
+                    for (Map.Entry<String, Double> entry : m.entrySet()) {
+                        String key = entry.getKey();
+                        Double value = entry.getValue();
+                        sh.setAttribute(key, value.toString());
+                    }
+                    rootEle.appendChild(sh);
+                }
+                continue; // skip the composite itself
+            }
+            m = current.getProperties();
+            Element sh = dom.createElement(current.getClass().getSimpleName());
             for (Map.Entry<String, Double> entry : m.entrySet()) {
                 String key = entry.getKey();
                 Double value = entry.getValue();

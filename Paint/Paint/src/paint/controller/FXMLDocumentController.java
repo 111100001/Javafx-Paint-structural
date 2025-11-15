@@ -1,4 +1,3 @@
-
 package paint.controller;
 
 
@@ -93,6 +92,12 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
     private Button CopyBtn;
     
     @FXML
+    private Button GroupBtn;
+
+    @FXML
+    private Button UngroupBtn;
+
+    @FXML
     private Label Message;
     
     @FXML
@@ -105,7 +110,7 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
     private Point2D end;
     
     //SINGLETON DP
-    private static ArrayList<Shape> shapeList = new ArrayList<Shape>();
+    private static ArrayList<Shape> shapeList = new ArrayList<>();
     
     private boolean move=false;
     private boolean copy=false;
@@ -115,8 +120,8 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
     private boolean importt =false;
     
     //MEMENTO DP
-    private Stack primary = new Stack<ArrayList<Shape>>();
-    private Stack secondary = new Stack<ArrayList<Shape>>();
+    private Stack<ArrayList<Shape>> primary = new Stack<>();
+    private Stack<ArrayList<Shape>> secondary = new Stack<>();
 
 
     
@@ -206,6 +211,13 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
             else if(importt){importt=false;installPluginShape(PathText.getText());}
             hidePathPane();
         }
+
+        if(event.getSource()==GroupBtn){
+            handleGroup();
+        }
+        if(event.getSource()==UngroupBtn){
+            handleUngroup();
+        }
     }
     
     public void showPathPane(){
@@ -277,14 +289,14 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
     
     
     //Observer DP
-    public ObservableList getStringList(){
-        ObservableList l = FXCollections.observableArrayList(new ArrayList());
+    public ObservableList<String> getStringList(){
+        ObservableList<String> l = FXCollections.observableArrayList();
         try{
-        for(int i=0;i<shapeList.size();i++){
-            String temp = shapeList.get(i).getClass().getSimpleName() + "  (" + (int) shapeList.get(i).getTopLeft().getX() + "," + (int) shapeList.get(i).getTopLeft().getY() + ")";
-            l.add(temp);
-        }
-        }catch(Exception e){}
+            for(Shape s : shapeList){
+                String temp = s.getClass().getSimpleName() + "  (" + (int) s.getTopLeft().getX() + "," + (int) s.getTopLeft().getY() + ")";
+                l.add(temp);
+            }
+        }catch(Exception e){/* ignore for now */}
         return l;
     }
     
@@ -309,12 +321,12 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
     @Override
     public void refresh(Object canvas) {
         try {
-            primary.push(new ArrayList(cloneList(shapeList)));
+            primary.push(cloneList(shapeList));
         } catch (CloneNotSupportedException ex) {
             Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
         }
         redraw((Canvas) canvas);
-       ShapeList.setItems((getStringList()));
+        ShapeList.setItems(getStringList());
     }
     
     public void redraw(Canvas canvas){
@@ -348,33 +360,28 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
 
     @Override
     public Shape[] getShapes() {
-     return (Shape[]) shapeList.toArray();
+        return shapeList.toArray(new Shape[0]);
     }
 
     @Override
     public void undo() {
         if(secondary.size()<21){
-        ArrayList temp = (ArrayList) primary.pop();
-        secondary.push(temp);
-        
-        if(primary.empty()){shapeList = new ArrayList();}
-        else{temp = (ArrayList) primary.peek(); shapeList = temp;}
-        
-        redraw(CanvasBox);
-        ShapeList.setItems((getStringList()));
+            ArrayList<Shape> temp = primary.pop();
+            secondary.push(temp);
+            if(primary.empty()){shapeList = new ArrayList<>();}
+            else{shapeList = primary.peek();}
+            redraw(CanvasBox);
+            ShapeList.setItems(getStringList());
         }else{Message.setText("Sorry, Cannot do more than 20 Undo's :'(");}
     }
 
     @Override
     public void redo() {
-        ArrayList temp = (ArrayList) secondary.pop();
+        ArrayList<Shape> temp = secondary.pop();
         primary.push(temp);
-        
-        temp = (ArrayList) primary.peek();
-        shapeList = temp;
-        
+        shapeList = primary.peek();
         redraw(CanvasBox);
-        ShapeList.setItems((getStringList()));
+        ShapeList.setItems(getStringList());
     }
 
     @Override
@@ -427,6 +434,38 @@ public class FXMLDocumentController implements Initializable, DrawingEngine {
         Message.setText("Not supported yet.");
     }
 
-    
-    
+    private void handleGroup(){
+        if(shapeList.size()<2){Message.setText("Need at least 2 shapes to group.");return;}
+        int idx = ShapeList.getSelectionModel().getSelectedIndex();
+        Shape a; Shape b;
+        if(idx==-1){
+            a = shapeList.get(shapeList.size()-1);
+            b = shapeList.get(shapeList.size()-2);
+        } else if(idx==shapeList.size()-1){
+            a = shapeList.get(idx);
+            b = shapeList.get(idx-1);
+        } else {
+            a = shapeList.get(idx);
+            b = shapeList.get(idx+1);
+        }
+        if(a instanceof GroupShape || b instanceof GroupShape){Message.setText("Cannot nest groups in this demo.");return;}
+        GroupShape g = new GroupShape(java.util.Arrays.asList(a,b));
+        shapeList.remove(a); shapeList.remove(b);
+        shapeList.add(g);
+        Message.setText("Composite group created.");
+        refresh(CanvasBox);
+    }
+
+    private void handleUngroup(){
+        int idx = ShapeList.getSelectionModel().getSelectedIndex();
+        if(idx==-1){Message.setText("Select a group to ungroup.");return;}
+        Shape target = shapeList.get(idx);
+        if(!(target instanceof GroupShape)){Message.setText("Selected item not a group.");return;}
+        GroupShape g = (GroupShape) target;
+        shapeList.remove(g);
+        java.util.List<Shape> kids = g.getChildren();
+        for(int i=0;i<kids.size();i++){ shapeList.add(idx+i, kids.get(i)); }
+        Message.setText("Group split into children.");
+        refresh(CanvasBox);
+    }
 }
